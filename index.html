@@ -337,6 +337,5 @@ async function readFile(event,target,callback){const file=event.target.files[0];
 $('reportFile').addEventListener('change',event=>readFile(event,'inputText',processText));
 $('rangeFile').addEventListener('change',event=>readFile(event,'ranges',render));
 $('ranges').value=defaultRanges;
-$('inputText').value=samples.BCS;
 processText();
 </script></body></html>
