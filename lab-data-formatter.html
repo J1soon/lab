@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Data Formatter</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#f8f9fa;color:#333;font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.container{max-width:1500px;margin:auto;background:white;border-radius:12px;box-shadow:0 2px 20px #0000001a;overflow:hidden}.header{padding:28px;text-align:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white}.header h1{margin:0;font-size:2rem;font-weight:300}.header p{margin:6px 0 0;opacity:.9}.content{padding:28px}h2{font-size:1.2rem;font-weight:500;margin:0 0 12px}.section{margin-bottom:26px}.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}button,.file-button{font:inherit;font-size:14px;cursor:pointer;border:1px solid #dce0e7;border-radius:6px;padding:8px 14px;background:#f8f9fa;color:#555}button:hover,.file-button:hover{border-color:#667eea;background:#eef0ff}.primary{background:#667eea;color:white}.file-button input{max-width:215px;margin-left:8px}textarea{width:100%;min-height:160px;padding:14px;border:2px solid #e1e5e9;border-radius:8px;font:13px/1.5 Menlo,monospace;resize:vertical}textarea:focus{outline:2px solid #667eea;outline-offset:2px}.hint{font-size:13px;color:#666;margin:8px 0}details{margin-bottom:24px}summary{cursor:pointer;color:#555;font-weight:500}.table-scroll{overflow:auto;width:fit-content;max-width:100%;border:1px solid #b8cdea}table{border-collapse:collapse;font-size:14px;line-height:1.3;width:auto}th,td{padding:4px 8px;border-right:1px solid #b8cdea;border-bottom:2px solid white;white-space:nowrap;text-align:left}thead th{text-align:center;background:#d1dafa;color:#111;font-weight:500}thead th.alternate{background:#bcc8f9}thead .title{background:#b1ccfa;white-space:normal;min-width:200px;text-align:left}tbody th{background:#ccdffd;color:#111;font-weight:500}td{background:#e7ecff;color:#666;min-width:100px}.high{color:#f00}.low{color:#00f}.normal{color:#666}.unknown{color:#000}.history{float:right;color:#2264a3;margin-left:12px}.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:14px}.date-controls{display:flex;gap:12px;flex-wrap:wrap}.date-controls label{font-size:13px;display:grid;gap:3px}.date-controls select{padding:6px;border:1px solid #dce0e7;border-radius:4px;background:white}.abg{display:block;font-size:12px;margin-top:4px;cursor:pointer}.abg input{accent-color:#667eea}.empty{padding:24px;color:#666;background:#f8f9fa}#status{font-size:14px;color:#555}button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid #667eea;outline-offset:3px}@media(max-width:600px){body{padding:8px}.content{padding:16px}.header{padding:20px}table{font-size:13px}}@media print{body{padding:0}.container{box-shadow:none}.header,.input-section,details,.legend,#status{display:none}.content{padding:0}.table-scroll{overflow:visible}th,td{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+#output .selected{background:#fff4bf}.pick{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none;touch-action:none}.pick input{margin:0;accent-color:#b18b00;touch-action:none}.format-input{padding:9px 12px;border:2px solid #e1e5e9;border-radius:6px;font:14px Menlo,monospace;min-width:180px;width:100%}.format-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.format-grid label{font-size:14px}.preset.active{background:#667eea;color:white}.formatted-output{white-space:pre;overflow:auto;background:#f8f9fa;border:2px solid #e1e5e9;border-radius:8px;padding:15px;min-height:100px;font:14px/1.5 Menlo,Consolas,monospace;font-variant-ligatures:none;tab-size:4}#selectionStatus,#copyStatus{font-size:13px;color:#666}.selection-controls button{font-size:12px;padding:6px 10px}
+dialog{border:0;border-radius:12px;padding:24px;width:min(440px,90vw);box-shadow:0 8px 40px #0003}dialog::backdrop{background:#0006}dialog label{display:block}#templateStatus{font-size:13px;color:#666}.preset.active{outline:2px solid #667eea;outline-offset:2px}
+footer { max-width: 960px; margin: 32px auto 0; padding: 6px 0 48px; color: #8a949f; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; line-height: 1.65; text-align: center; -webkit-font-smoothing: antialiased; }
+[hidden]{display:none!important}
+</style>
+</head>
+<body><main class="container"><header class="header"><h1>Lab Data Formatter</h1><p>Turn copied lab results into a color-coded table and formatted text</p></header><div class="content">
+<section class="section input-section"><h2><label for="inputText">Input Text</label></h2><div class="controls" id="samples"><span>Load sample:</span><button data-sample="CBC">CBC</button><button data-sample="BCS">BCS</button><button data-sample="COAG">COAG</button><button data-sample="VBG">VBG</button><button data-sample="UA">UA</button></div><textarea id="inputText" spellcheck="false" placeholder="Paste one or more CBC, BCS, COAG, blood gas, or UA tables here. Keep tabs to preserve empty cells."></textarea><div class="controls"><label class="file-button">Open report <input id="reportFile" type="file" accept=".txt,text/plain"></label><button class="primary" id="format">Format Table</button><button id="clear">Clear</button></div><p class="hint">Paste one or more report types. Paginated tables of the same type are merged. Empty tab-separated cells are preserved. Files are processed locally in your browser.</p></section>
+<details><summary>Normal ranges</summary><p class="hint">Loaded from the supplied Normal Range.txt. Edit here or open an updated file. Values with blank or unavailable ranges are black. Strict limits such as &lt;14 mark 14 and above red, with no blue values.</p><p class="hint">PTT uses aPTT; CRP uses hsCRP.</p><textarea id="ranges" aria-label="Normal ranges" spellcheck="false"></textarea><div class="controls"><label class="file-button">Open ranges <input id="rangeFile" type="file" accept=".txt,text/plain"></label><button id="applyRanges">Apply Ranges</button></div></details>
+<section class="section"><h2>Output</h2><div class="legend"><span class="high">Red · High</span><span class="low">Blue · Low</span><span class="normal">Gray · Normal</span><span class="unknown">Black · No range</span></div><p id="status" role="status" aria-live="polite"></p><div class="controls selection-controls"><button id="selectAll">Select all</button><button id="selectRows">All rows</button><button id="selectColumns">All columns</button><button id="clearSelection">Clear selection</button></div><p class="hint">Check rows and columns to include their intersections in formatted output. Drag from a selection checkbox to check or uncheck a continuous group. Yellow marks selected rows or columns.</p><div id="output"></div></section>
+<section class="section"><h2>Formatted Output</h2><p id="selectionStatus" role="status"></p>
+<div class="controls" id="formatPresets" aria-label="Template slots"></div><p id="templateStatus" role="status">Loading saved templates…</p>
+<div class="format-grid">
+<label>Row format<input class="format-input" id="customFormat" value="{label} ({unit}) {values}\n" spellcheck="false"></label>
+<label>Between values<input class="format-input" id="valueSeparator" value=" " spellcheck="false"></label>
+<label>Each value<input class="format-input" id="valueFormat" value="{value}" spellcheck="false"></label>
+<label>Date format<input class="format-input" id="dateFormat" value="MM/DD" spellcheck="false"></label>
+</div>
+<div class="controls"><label><input type="checkbox" id="aligned" checked> Align columns</label><label><input type="checkbox" id="alignWithDates" checked disabled> Align with dates</label><label><input type="checkbox" id="includeDate" checked> Include dates</label><label><input type="checkbox" id="separatorDates"> Apply “Between values” to dates</label><label><input type="checkbox" id="skipEmpty" checked> Omit empty columns</label><button class="primary" id="saveFormat" disabled>Save</button><button id="resetTemplates" disabled>Restore defaults</button></div>
+<p class="hint">Row placeholders: {label} = label without units, {name} = alias for {label}, {unit} = unit, {values} = selected values. Each-value placeholders: {value}, {date}, {unit}. Date tokens: YYYY, MM, DD (zero-padded), M, D (no leading zeroes). Example: M/D → 9/1. Use \n for a newline or \t for a tab. Alignment preserves row-format text and adds padding before and between values. Blank cells are omitted when alignment is off, including when dates are shown. With alignment on and dates hidden, values start at the left; “Align with dates” preserves their original date positions.</p>
+<div class="controls" id="mergeTablesControl" hidden><label><input type="checkbox" id="mergeTables"> Align data across table types</label></div>
+<pre class="formatted-output" id="formattedOutput" tabindex="0" aria-label="Formatted selected data"></pre><div class="controls"><button id="copyOutput">Copy output</button><span id="copyStatus" role="status"></span></div>
+</section></div></main>
+<footer>© 2025–2026 J1soon. All rights reserved.</footer>
+<dialog id="saveDialog" aria-labelledby="saveTitle" aria-describedby="saveConfirmation">
+<form id="saveTemplateForm"><h2 id="saveTitle">Save template</h2><label for="templateName">Template name</label><input class="format-input" id="templateName" required maxlength="80" autocomplete="off"><label for="saveSlot">Save to slot</label><select class="format-input" id="saveSlot"></select><p class="hint" id="saveConfirmation"></p><p id="saveError" role="alert"></p><div class="controls"><button class="primary" id="confirmSave" type="submit">Save</button><button id="cancelSave" type="button">Cancel</button></div></form>
+</dialog>
+<script>
+const samples = {"BCS": "Blood Biochemistry BLOOD(1/1)\t2026/09/01\t2026/09/03\t2026/09/04\t2026/09/07\t2026/09/10\n15:39\t23:03\t16:57\t10:25\t10:25~10:25\t08:42\t06:13\t13:15\nAlb(g/dL)\t\t\t3.3\t\t2.5\t3.4\t3.2\t\nT-BIL(mg/dL)\t0.71\t\t1.09\t\t0.71歷\t0.66\t0.74\t\nD-BIL(mg/dL)\t\t\t\t\t0.25歷\t0.15\t0.18\t\nAST(U/L)\t\t\t\t\t31歷\t15\t14\t\nALT(U/L)\t9\t\t12\t\t16歷\t9\t9\t\nALP(U/L)\t\t\t\t\t56歷\t\t\t\nGGT(U/L)\t\t\t\t\t39歷\t\t\t\nAMY(U/L)\t49\t\t\t\t\t\t\t\nLipase(U/L)\t11\t\t\t\t\t\t\t\nUN(mg/dL)\t\t\t14.9\t\t13.5歷\t11.3\t13.6\t14.0\nCRE(mg/dL)\t0.59\t\t0.54\t\t0.55歷\t0.49\t0.48\t0.56\nNa(mmol/L)\t131\t\t135\t\t137歷\t137\t136\t135\nK(mmol/L)\t4.3\t\t3.2\t\t3.1歷\t3.1\t3.3\t4.0\nCl(mmol/L)\t\t\t\t\t\t\t\t99\nMg(mmol/L)\t\t\t\t\t0.84歷\t0.84\t0.91\t\nLacticAcid(mmol/L)\t\t1.06\t\t2.11\t\t\t\t\nProcalcitonin(ng/mL)\t\t\t\t\t6.160\t\t\t\neGFR (MDRD)(mL/min/1.73 m^2)\t107.1\t\t118.6\t\t116.1歷\t132.7\t135.9\t113.8\neGFR (CKD-EPI)(mL/min/1.73 m^2)\t96.89\t\t98.98\t\t98.55歷\t101.33\t101.83\t98.12", "CBC": "Complete Blood Cell Count BLOOD(1/1)\t2026/09/01\t2026/09/03\t2026/09/04\t2026/09/07\t2026/09/10\n15:39~15:39\t16:57~16:57\t10:25~10:25\t08:42~08:42\t06:13~06:13\t13:15\nRBC(M/μL)\t3.19\t3.17\t2.63\t2.78\t2.66\t3.36\nHb(g/dL)\t12.3\t11.8\t9.8\t10.4\t10.1\t12.5\nHct(%)\t35.2\t34.7\t28.9\t29.9\t28.8\t37.3\nMCV(fL)\t110.3\t109.5\t109.9\t107.6\t108.3\t111.0\nMCHC(g/dL)\t34.9\t34.0\t33.9\t34.8\t35.1\t33.5\nPLT(k/μL)\t309\t312\t254\t236\t260\t263\nRDW-CV(%)\t\t\t17.0\t15.9\t15.8\t\nWBC(k/μL)\t5.15\t3.05\t10.15\t4.23\t4.21\t3.85\nBlast(%)\t0.0\t0.0\t0.0\t0.0\t0.0\t0.0\nPromyl.(%)\t0.0\t0.0\t0.0\t0.0\t0.0\t0.0\nMyelo.(%)\t0.0\t0.0\t0.0\t0.0\t0.0\t0.0\nMeta(%)\t0.0\t0.0\t0.0\t0.0\t0.0\t0.0\nBand(%)\t0.0\t0.0\t13.9\t0.0\t0.0\t0.0\nSeg(%)\t61.3\t91.5\t76.8\t65.0\t81.7\t90.3\nEos.(%)\t0.0\t0.0\t0.0\t0.5\t0.7\t0.3\nBaso.(%)\t0.4\t0.0\t0.0\t0.7\t0.5\t0.8\nMono(%)\t7.8\t1.0\t1.9\t5.7\t3.8\t2.1\nAty.Lym.(%)\t0.0\t0.0\t0.9\t0.0\t0.0\t0.0\nLym.(%)\t30.5\t7.5\t6.5\t28.1\t13.3\t6.5\nPlasmaCell(%)\t0.0\t0.0\t0.0\t0.0\t0.0\t0.0\nNormobl.()\t0\t0\t0.0\t0\t0\t0\nCRP(mg/dL)\t0.63\t0.42\t14.41\t2.46\t0.87\t", "COAG": "Coagulation Profile BLOOD(1/1) 2026/09/01 \n23:03 \nPT(sec) 10.8 \nPT INR() 0.97 \nPTT(sec) 27.3 \n", "VBG": "Blood Gas BLOOD(1/1)\t2026/09/01\t2026/09/04\n23:03\t10:25\npH(*)\t7.444\t7.394\npCO2(mmHg)\t30.5\t37.4\npO2(mmHg)\t102.8\t30.0\nHCO3-(mmol/L)\t20.4\t22.3\nBase Excess(mmol/L)\t-3.6\t-2.6", "UA": "Urine examination RANDOM URINE(1/1) 2026/09/04 2026/09/10 \n13:28 15:34 \nSp. Gr.(C)(*) 1.018 1.009 \npH(C)(*) 5.5 7.0 \nProtein(C)(mg/dL) 15 (+/-) - \nAlb.(Dipstick)(mg/L) 30 10 \nCreatinine(Dipstick)(mg/dL) 50 10 \nAlb./Cre.(Dipstick)(mg/g) 80 (1+) Dilute \nGlu.(C)(mg/dL) - - \nKetones(C)(*) - - \nO.B.(C)(*) +/- +/- \nUrobil.(C)(mg/dL) ≦1.5 ≦1.5 \nBil.(C)(*) - - \nNitrite(C)(*) 1+ - \nLeukocyte esterase(*) - - \nRBC(S)(/HPF) 0-2 3-5 \nWBC(S)(/HPF) 10-19 0-2 \nEpithCell(S)(/HPF) 3-5 3-5 \nCast(S)(/LPF) - - \nCrystal(S)(*) - - \nBacteria (Sediment)(*) + - \nOthers(S)(*) - - \n"};
+const defaultRanges = "WBC 3.25~9.16\nRBC 3.78~5.25\nHB 11.0~15.2\nHCT 34.8~46.3\nMCV 80.9~99.3\nMCH 25.5~33.2\nMCHC 31.0~34.9\nPLT 150~378\nRDW-CV 11.6~15.0\nPS\nBlast 0\nPromyl.\nMyelo.\nMeta\nBand 0~5   \nSeg 41.6~74.4 \nEos. 0.3~7.9 (≧18 years):0.02-0.46  \nBaso. 0.2~1.6 (≧18 years):0.01-0.09  \nMono. 3.3~8.9 (≧18 years):0.16-0.55  \nLym. 18.0~48.8 (≧18 years):0.94-2.99  \nAty.Lym.\nPlasmaCell\nNormobl.\nPS Auto DC\n\n\nD-BIL 0.03-0.18\nAlb 3.5~5.7\nT-BIL 0.3~1\nAST 8~31\nALT 0~41\nALP 34-104\nGGT 9~64\nAMY 29~103\nLipase 11~82\nUN 7~25\nCRE 0.6-1.3\nNa 136~145\nK 3.5~5.1\nCa 2.15~2.58\nMg 0.78~1.11\nCl 98~107\nP 2.5-5\nhsCRP <1\nLacticAcid 0.5~2.2\nProcalcitonin <0.5\nLDH 140~271\nGLU AC 70~100\n\nTroponin-T <14\nCK 30~223\nD-dimer ≦0.56\n\n\naPTT 25.6~32.6 \nPT 9.7~11.8\nPT INR 0.91~1.10\n\n\n[VBG]\nPH 7.32-7.43\nPCO2 38-54\nPO2 23-48\nHCO3 22-29\nBaseExcess -2-+3\n\n[ABG]\nPH 7.35~7.45\nPCO2 32-48\nPO2 83-108\nHCO3 21-28\nBaseExcess -2-+3 \n\n\nSp. Gr.(Dipstick) 1.003-1.035\npH(Dipstick) 5.0-8.0\nProtein(Dipstick) (-)~(+/-)\nAlbumin(Dipstick) 10\nCreatinine(Dipstick) N/A\nAlbumin/Creatinine(Dipstick) <30\nGlu.(Dipstick) (-)\nKetone(Dipstick) (-)\nO.B.(Dipstick) (-)\nUrobil.(Dipstick) ≦1.5\nBil.(Dipstick) (-)\nNitrite(Dipstick) (-)\nWBC esterase (Dipstick) (-)\nRBC (Sediment) 0-2\nWBC (Sediment) 0-5\nEpith. (Sediment) 0-5 \nCast (Sediment) 0-2\nCrystal (Sediment)\nBacteria (Sediment) (-)\nOthers (Sediment) N/A\n\n";
+const $ = id => document.getElementById(id);
+let reports = [];
+const canonical = name => {
+ const specimen = name.match(/\((Dipstick|Sediment)\)/i);
+ const key = name.replace(/\(.*$/, '').replace(/[\s.\-]/g,'').toUpperCase() + (specimen ? ':' + specimen[1].toUpperCase() : '');
+ return ({PTT:'APTT',CRP:'HSCRP'})[key] || key;
+};
+// Keep urine aliases separate from blood analytes, especially pH, RBC, and WBC.
+function urineKey(name) {
+ const base=name.replace(/\(.*$/, '').replace(/[\s.\-]/g,'').toUpperCase();
+ const aliases={ALB:'ALBUMIN','ALB/CRE':'ALBUMIN/CREATININE',KETONES:'KETONE',LEUKOCYTEESTERASE:'WBCESTERASE',EPITHCELL:'EPITH'};
+ const specimen=/\((S|Sediment)\)/i.test(name)?'SEDIMENT':'DIPSTICK';
+ return (aliases[base]||base)+':'+specimen;
+}
+function parseRanges(text) {
+ const result = {GENERAL:{},VBG:{},ABG:{},UA:{}};
+ let section='GENERAL';
+ for(const line of text.split(/\r?\n/)) {
+  const heading=line.trim().match(/^\[(GENERAL|VBG|ABG|UA)\]$/i);
+  if(heading){section=heading[1].toUpperCase();continue;}
+  const urine=line.trim().match(/^(.*\((?:Dipstick|Sediment)\))\s*(.*)$/i);
+  if(urine){result.UA[urineKey(urine[1])]=urine[2];continue;}
+  const match=line.trim().match(/^(.*?)\s+((?:[<>≤≥≦≧]=?\s*)?[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:\s*[~–-]\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+))?)(?=\s|$)/);
+  // Urinalysis follows ABG without a section heading in the supplied file.
+  if(match) {
+   const target = /\((Dipstick|Sediment)\)/i.test(match[1]) ? 'UA' : section;
+   result[target][canonical(match[1])]=match[2];
+  }
+ }
+ return result;
+}
+function classify(value, range) {
+ if(!range) return 'unknown';
+ const number=String(value).replace(/歷/g,'').trim();
+ if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(number)) return 'unknown';
+ const n=Number(number), r=range.replace(/\s/g,'');
+ const bound=r.match(/^([<>≤≥≦≧]=?)([+-]?[\d.]+)$/);
+ if(bound){const b=Number(bound[2]);switch(bound[1]){case '<':return n>=b?'high':'normal';case '<=':case '≤':case '≦':return n>b?'high':'normal';case '>':return n<=b?'low':'normal';default:return n<b?'low':'normal';}}
+ const pair=r.match(/^([+-]?[\d.]+)[~–-]([+-]?[\d.]+)$/);
+ const lo=pair?Number(pair[1]):Number(r), hi=pair?Number(pair[2]):Number(r);
+ return n<lo?'low':n>hi?'high':'normal';
+}
+function classifyUrine(value, range) {
+ if(!range || range==='N/A' || !value.trim()) return 'unknown';
+ const clean=value.replace(/歷/g,'').trim();
+ const grade=text=>{
+  const token=text.replace(/[()\s]/g,'');
+  if(token==='-')return 0;
+  if(token==='+/-'||token==='±')return 0.5;
+  if(/^\++$/.test(token))return token.length;
+  if(/^\d+\+$/.test(token))return Number(token.slice(0,-1));
+  return null;
+ };
+ if(range.includes('(-)')) {
+  const annotation=clean.match(/\(([^)]+)\)/);
+  const actual=grade(annotation?annotation[1]:clean);
+  if(actual===null)return 'unknown';
+  const maximum=range.includes('(+/-)')?0.5:0;
+  return actual>maximum?'high':'normal';
+ }
+ // Negative sediment means no cells/casts; annotations accompany numeric dipstick values.
+ const numeric=clean==='-'?'0':clean.replace(/\s*\([^)]*\)\s*$/,'');
+ const interval=numeric.match(/^(\d+(?:\.\d+)?)[~–-](\d+(?:\.\d+)?)$/);
+ if(interval){
+  const low=classify(interval[1],range),high=classify(interval[2],range);
+  return high==='high'?'high':low==='low'?'low':'normal';
+ }
+ const bound=numeric.match(/^([<≤≦]=?)\s*(\d+(?:\.\d+)?)$/);
+ if(bound){
+  const limit=range.replace(/\s/g,'').match(/^([<≤≦]=?)(\d+(?:\.\d+)?)$/);
+  if(limit && (Number(bound[2])<Number(limit[2]) || (Number(bound[2])===Number(limit[2]) && (limit[1]!=='<' || bound[1]==='<'))))return 'normal';
+  return 'unknown';
+ }
+ return classify(numeric,range);
+}
+function parseReport(text) {
+ const lines=text.replace(/\r/g,'').split('\n').filter(line=>line.trim());
+ if(lines.length<3) throw new Error('Paste a report with a date header, collection times, and result rows.');
+ const dates=lines[0].match(/\d{4}[/\-]\d{2}[/\-]\d{2}/g)||[];
+ const times=lines[1].match(/\d{2}:\d{2}(?:[~–-]\d{2}:\d{2})?/g)||[];
+ if(!dates.length || !times.length) throw new Error('Could not find report dates or collection times.');
+ const title=lines[0].split(/\d{4}[/\-]\d{2}[/\-]\d{2}/)[0].trim();
+ const rows=lines.slice(2).map(line=>{
+  let cells;
+  if(line.includes('\t')) cells=line.replace(/^ +/,'').split('\t');
+  else {const m=line.trim().match(/^(.*?\))\s+(?=[<>≤≥≦≧+\-\d]|Dilute)(.+)$/i);if(!m) throw new Error('Could not read row: '+line);const values=m[2].match(/(?:[<>≤≥≦≧]=?\s*)?[^\s()]+(?:\s*\([^)]*\))?/g)||[];cells=[m[1],...values];}
+  const name=cells.shift().trim();
+  if(cells.length>times.length) throw new Error('Too many values in '+name+'. Keep the original tabs and collection times.');
+  return {name,values:Array.from({length:times.length},(_,i)=>(cells[i]||'').trim())};
+ });
+ const sampleKey=Object.keys(samples).find(key=>samples[key].replace(/\r/g,'').trim()===text.replace(/\r/g,'').trim());
+ const sampleDates={BCS:[0,0,1,2,2,3,4,4],CBC:[0,1,2,3,4,4],COAG:[0],VBG:[0,1],UA:[0,1]};
+ const assignments=sampleKey?sampleDates[sampleKey]:times.map((_,i)=>Math.min(i,dates.length-1));
+ return {title,dates,times,rows,assignments,selectedRows:rows.map(()=>false),selectedColumns:times.map(()=>false),urine:/urine|\bUA\b/i.test(title),abg:times.map(()=>false),gas:/blood gas|\b[VA*]BG\b/i.test(title)||rows.some(row=>canonical(row.name)==='PCO2'),inferred:!sampleKey&&dates.length!==times.length&&dates.length>1};
+}
+// Each page keeps its own date mapping before columns are appended by report type.
+function parseReports(text) {
+ const lines=text.replace(/\r/g,'').split('\n');
+ const starts=lines.flatMap((line,i)=>/\d{4}[/\-]\d{2}[/\-]\d{2}/.test(line)&&!/^\s*\d/.test(line)?[i]:[]);
+ if(!starts.length)throw new Error('Could not find report dates or collection times.');
+ const grouped=new Map();
+ starts.forEach((start,page)=>{
+  const end=starts[page+1]??lines.length;
+  const block=lines.slice(start,end);
+  // Standalone section headings between pages contain neither tabs nor result units.
+  while(block.length&&(!block.at(-1).trim()||(!block.at(-1).includes('\t')&&!block.at(-1).includes(')'))))block.pop();
+  const data=parseReport(block.join('\n'));
+  data.title=data.title.replace(/\s*\(\d+\/\d+\)\s*$/,'').trim();
+  const key=data.title.toLowerCase().replace(/\s+/g,' '),existing=grouped.get(key);
+  if(!existing){grouped.set(key,data);return;}
+  const offset=existing.times.length;
+  const mapping=data.dates.map(date=>{let index=existing.dates.indexOf(date);if(index<0){index=existing.dates.length;existing.dates.push(date);}return index;});
+  existing.times.push(...data.times);
+  existing.assignments.push(...data.assignments.map(index=>mapping[index]));
+  existing.selectedColumns.push(...data.selectedColumns);existing.abg.push(...data.abg);
+  const rowKey=name=>name.toLowerCase().replace(/\s+/g,'');
+  const rows=new Map(existing.rows.map(row=>[rowKey(row.name),row]));
+  existing.rows.forEach(row=>row.values.push(...data.times.map(()=>'')));
+  data.rows.forEach(row=>{
+   const match=rows.get(rowKey(row.name));
+   if(match)match.values.splice(offset,data.times.length,...row.values);
+   else{existing.rows.push({name:row.name,values:[...Array(offset).fill(''),...row.values]});existing.selectedRows.push(false);}
+  });
+  existing.inferred ||= data.inferred;
+ });
+ return [...grouped.values()];
+}
+function renderDates(report,section) {
+ const details=element('details'),summary=element('summary','Column dates');
+ details.append(summary,element('p',report.inferred?'Date spans were lost in the copied text. Verify each column’s date assignment.':'Adjust dates independently for this table.','hint'));
+ details.append(element('p','Changing a date reassigns following columns to subsequent dates in order, repeating the last date as needed. Earlier columns stay unchanged.','hint'));
+ const controls=element('div',undefined,'date-controls');
+ report.times.forEach((time,i)=>{
+  const label=element('label',`${i+1}. ${time}`),select=element('select');
+  report.dates.forEach((date,j)=>{const option=element('option',date);option.value=j;select.append(option);});
+  select.value=report.assignments[i];
+  select.addEventListener('change',()=>{
+   const dateIndex=Number(select.value);
+   for(let column=i;column<report.times.length;column++)report.assignments[column]=Math.min(dateIndex+column-i,report.dates.length-1);
+   controls.querySelectorAll('select').forEach((control,column)=>{control.value=report.assignments[column];});
+   renderTables();
+  });
+  label.append(select);controls.append(label);
+ });
+ details.append(controls);section.append(details);
+}
+function renderTables(){
+ document.querySelectorAll('#output .table-scroll').forEach((out,i)=>renderTable(reports[i],out));
+ updateSelection();
+}
+function element(tag,text,className){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;}
+function render() {
+ const out=$('output');out.replaceChildren();
+ if(!reports.length){out.append(element('div','Formatted output will appear here.','empty'));updateFormatted();return;}
+ reports.forEach((report,index)=>{
+  const section=element('section',undefined,'section');section.dataset.table=index;
+  section.append(element('h2',report.title));renderDates(report,section);
+  const controls=element('div',undefined,'controls selection-controls');
+  for(const [text,rows,columns,value] of [['Select all',true,true,true],['All rows',true,false,true],['All columns',false,true,true],['Clear selection',true,true,false]]){
+   const button=element('button',text);button.addEventListener('click',()=>{if(rows)report.selectedRows.fill(value);if(columns)report.selectedColumns.fill(value);updateSelection();});controls.append(button);
+  }
+  section.append(controls,element('div',undefined,'table-scroll'));out.append(section);
+ });
+ renderTables();
+}
+function renderTable(report,out) {
+ out.replaceChildren();
+ const ranges=parseRanges($('ranges').value),table=element('table');
+ table.setAttribute('aria-label',report.title);
+ const head=table.createTHead(),dateRow=head.insertRow(),timeRow=head.insertRow();
+ const title=element('th',report.title,'title');title.rowSpan=2;title.scope='col';dateRow.append(title);
+ let group=0;
+ for(let i=0;i<report.times.length;){let end=i+1;while(end<report.times.length&&report.assignments[end]===report.assignments[i])end++;const th=element('th',report.dates[report.assignments[i]],group%2?'alternate':'');th.colSpan=end-i;th.scope='colgroup';dateRow.append(th);
+ for(let j=i;j<end;j++){const cell=element('th',report.times[j],group%2?'alternate':'');cell.scope='col';cell.dataset.column=j;cell.replaceChildren(selectionControl(report,'column',j,report.times[j]));if(report.gas){const label=element('label',undefined,'abg'),check=element('input');check.type='checkbox';check.className='abg-check';check.checked=report.abg[j];check.setAttribute('aria-label','ABG for '+report.dates[report.assignments[j]]+' '+report.times[j]+' column '+(j+1));check.addEventListener('change',()=>{report.abg[j]=check.checked;renderTable(report,out);const inputs=out.querySelectorAll('.abg-check');inputs[j].focus();});label.append(check,document.createTextNode(' ABG'));cell.append(label);}timeRow.append(cell);}i=end;group++;}
+ const body=table.createTBody();
+ for(const [rowIndex,row] of report.rows.entries()){const tr=body.insertRow(),th=element('th');th.scope='row';th.dataset.row=rowIndex;th.append(selectionControl(report,'row',rowIndex,row.name));tr.append(th);row.values.forEach((value,i)=>{const key=canonical(row.name),range=report.urine?ranges.UA[urineKey(row.name)]:(report.gas?ranges[report.abg[i]?'ABG':'VBG'][key]:undefined)??ranges.GENERAL[key];const state=report.urine?classifyUrine(value,range):classify(value,range),td=element('td',value.replace(/歷/g,''),state);td.dataset.row=rowIndex;td.dataset.column=i;td.title=range?'Reference: '+range+' · '+state:'No numeric reference range';if(value.includes('歷'))td.append(element('span','歷','history'));tr.append(td);});}
+ out.append(table);
+ updateSelection();
+}
+
+function selectionControl(report,axis,index,text) {
+ const label=element('label',undefined,'pick'),check=element('input');
+ label.dataset.axis=axis;label.dataset.index=index;
+ check.type='checkbox';check.checked=(axis==='row'?report.selectedRows:report.selectedColumns)[index];
+ check.setAttribute('aria-label',`Select ${axis} ${index+1}: ${text}`);
+ check.addEventListener('change',()=>{(axis==='row'?report.selectedRows:report.selectedColumns)[index]=check.checked;updateSelection();});
+ label.append(check,document.createTextNode(text));return label;
+}
+function updateSelection() {
+ $('output').querySelectorAll('[data-table]').forEach(section=>{
+  const report=reports[Number(section.dataset.table)];
+  section.querySelectorAll('[data-row],[data-column]').forEach(cell=>{
+   const row=cell.dataset.row,col=cell.dataset.column;
+   cell.classList.toggle('selected',(row!==undefined&&report.selectedRows[Number(row)])||(col!==undefined&&report.selectedColumns[Number(col)]));
+  });
+  section.querySelectorAll('.pick').forEach(label=>{label.querySelector('input').checked=(label.dataset.axis==='row'?report.selectedRows:report.selectedColumns)[Number(label.dataset.index)];});
+ });
+ updateFormatted();
+}
+const unescapeFormat=text=>text.replace(/\\(\\|n|t)/g,(_,token)=>({n:'\n',t:'\t','\\':'\\'})[token]);
+function fillTemplate(template,values){return template.replace(/\{(\w+)\}/g,(match,key)=>Object.hasOwn(values,key)?values[key]:match);}
+function rowParts(label) {
+ const groups=Array.from(label.matchAll(/\(([^()]*)\)/g));
+ const last=groups.at(-1);
+ const name=last?label.slice(0,last.index).trim():label;
+ return {label:name,name,unit:last?last[1]:''};
+}
+function formatSelected(data,options) {
+ if(!data)return '';
+ const rows=data.rows.filter((_,i)=>data.selectedRows[i]);
+ let columns=data.times.map((_,i)=>i).filter(i=>data.selectedColumns[i]);
+ if(options.skipEmpty)columns=columns.filter(i=>rows.some(row=>row.values[i].trim()));
+ if(!rows.length||!columns.length)return '';
+ const date=i=>{const [YYYY,MM,DD]=data.dates[data.assignments[i]].split(/[/-]/);return options.date.replace(/YYYY|MM|DD|M|D/g,key=>({YYYY,MM,DD,M:String(Number(MM)),D:String(Number(DD))})[key]);};
+ const values=rows.map(row=>columns.map(i=>{
+  const value=row.values[i].replace(/歷/g,'').trim();
+  return value?fillTemplate(unescapeFormat(options.value),{value,date:date(i),unit:rowParts(row.name).unit}):'';
+ }));
+ if(options.aligned&&!options.includeDate&&!options.alignWithDates){
+  values.forEach((row,i)=>{const compact=row.filter(value=>value!=='');values[i]=compact.concat(Array(columns.length-compact.length).fill(''));});
+ }
+ const rowTemplate=unescapeFormat(options.row),separator=unescapeFormat(options.separator);
+ const headers=columns.map(date);
+ const parts=rows.map(row=>rowParts(row.name));
+ const start=rowTemplate.indexOf('{values}');
+ const prefixes=parts.map(part=>fillTemplate(start<0?'':rowTemplate.slice(0,start),part));
+ const prefixWidths=prefixes.map(prefix=>prefix.slice(prefix.lastIndexOf('\n')+1).length);
+ const indent=options.aligned?Math.max(...prefixWidths):prefixWidths[0];
+ let formatted;
+ if(options.aligned){
+  // Preserve the row template; align only the value block after each prefix.
+  const widths=headers.map((header,j)=>Math.max(options.includeDate?header.length:0,...values.map(row=>row[j].length)));
+  formatted=parts.map((part,i)=>fillTemplate(rowTemplate,{...part,values:' '.repeat(indent-prefixWidths[i])+values[i].map((value,j)=>(j?(value&&values[i].slice(0,j).some(Boolean)?separator:separator.replace(/[^\s]/g,' ')):'')+value.padEnd(widths[j])).join('')}));
+  headers.forEach((header,j)=>headers[j]=header.padEnd(widths[j]));
+ }else{
+  formatted=parts.map((part,i)=>fillTemplate(rowTemplate,{...part,values:values[i].filter(value=>value!=='').join(separator)}));
+ }
+ if(!options.includeDate||start<0)return formatted.join('');
+ const dateSeparator=options.separatorDates?separator:(options.aligned?' '.repeat(separator.length):' ');
+ return ' '.repeat(indent)+headers.join(dateSeparator).trimEnd()+'\n'+formatted.join('');
+}
+function mergeSelectedReports(data) {
+ const columns=new Map(),selected=[];
+ data.forEach(report=>{
+  const rows=report.rows.filter((_,i)=>report.selectedRows[i]);
+  if(!rows.length)return;
+  const mapping=[],occurrences=new Map();
+  report.times.forEach((_,i)=>{
+   if(!report.selectedColumns[i])return;
+   const date=report.dates[report.assignments[i]].replace(/-/g,'/');
+   // Match the first selected column for a date across types, then the second, etc.
+   const occurrence=occurrences.get(date)||0,key=date+'#'+occurrence;
+   occurrences.set(date,occurrence+1);
+   columns.set(key,{key,date,occurrence});mapping.push({source:i,key});
+  });
+  if(mapping.length)selected.push({rows,mapping});
+ });
+ const ordered=[...columns.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.occurrence-b.occurrence);
+ const indices=new Map(ordered.map((column,i)=>[column.key,i]));
+ const rows=selected.flatMap(({rows,mapping})=>rows.map(row=>{
+  const values=ordered.map(()=>'');
+  mapping.forEach(({source,key})=>{values[indices.get(key)]=row.values[source];});
+  return {name:row.name,values};
+ }));
+ return {rows,dates:ordered.map(column=>column.date),times:ordered.map(()=>''),assignments:ordered.map((_,i)=>i),selectedRows:rows.map(()=>true),selectedColumns:ordered.map(()=>true)};
+}
+function updateFormatted() {
+ $('alignWithDates').disabled=!$('aligned').checked||$('includeDate').checked;
+ $('alignWithDates').checked=$('aligned').checked&&($('includeDate').checked||alignWithDatesPreference);
+ const options=currentFormat();
+ const selectedTables=reports.filter(report=>report.selectedRows.some(Boolean)&&report.selectedColumns.some(Boolean));
+ $('mergeTablesControl').hidden=selectedTables.length<2;
+ const text=selectedTables.length>1&&$('mergeTables').checked
+  ?formatSelected(mergeSelectedReports(reports),options)
+  :reports.map(report=>formatSelected(report,options)).filter(Boolean).join('\n');
+ $('formattedOutput').textContent=text;
+ $('selectionStatus').textContent=reports.length?reports.map(report=>`${report.title}: ${report.selectedRows.filter(Boolean).length} rows × ${report.selectedColumns.filter(Boolean).length} columns`).join(' · ')+(text?'':' · Select at least one row and column with data.'):'Load a report to select data.';
+ $('copyOutput').disabled=!text;$('copyStatus').textContent='';
+
+}
+let selectionDrag=null;
+$('output').addEventListener('pointerdown',event=>{
+ const label=event.target.closest('.pick');if(!label||event.button!==0)return;
+ const report=reports[Number(label.closest('[data-table]').dataset.table)];
+ event.preventDefault();
+ const axis=label.dataset.axis,index=Number(label.dataset.index),items=axis==='row'?report.selectedRows:report.selectedColumns;
+ selectionDrag={report,axis,last:index,value:!items[index],pointer:event.pointerId};
+ items[index]=selectionDrag.value;label.querySelector('input').focus();updateSelection();
+});
+document.addEventListener('pointermove',event=>{
+ if(!selectionDrag||event.pointerId!==selectionDrag.pointer)return;
+ event.preventDefault();
+ const label=document.elementFromPoint(event.clientX,event.clientY)?.closest('.pick');
+ if(!label||label.dataset.axis!==selectionDrag.axis||reports[Number(label.closest('[data-table]').dataset.table)]!==selectionDrag.report)return;
+ const report=selectionDrag.report;
+ const index=Number(label.dataset.index),items=selectionDrag.axis==='row'?report.selectedRows:report.selectedColumns;
+ for(let i=Math.min(index,selectionDrag.last);i<=Math.max(index,selectionDrag.last);i++)items[i]=selectionDrag.value;
+ selectionDrag.last=index;updateSelection();
+},{passive:false});
+for(const event of ['pointerup','pointercancel'])document.addEventListener(event,()=>selectionDrag=null);
+window.addEventListener('blur',()=>selectionDrag=null);
+// Pointer gestures already changed state; preserve native keyboard checkbox activation.
+$('output').addEventListener('click',event=>{if(event.detail>0&&event.target.closest('.pick'))event.preventDefault();});
+for(const [id,rows,columns,value] of [['selectAll',true,true,true],['selectRows',true,false,true],['selectColumns',false,true,true],['clearSelection',true,true,false]]){
+ $(id).addEventListener('click',()=>{reports.forEach(report=>{if(rows)report.selectedRows.fill(value);if(columns)report.selectedColumns.fill(value);});updateSelection();});
+}
+const templateFields={row:'customFormat',separator:'valueSeparator',value:'valueFormat',date:'dateFormat',aligned:'aligned',alignWithDates:'alignWithDates',includeDate:'includeDate',separatorDates:'separatorDates',skipEmpty:'skipEmpty'};
+let alignWithDatesPreference=false;
+function currentFormat(){return Object.fromEntries(Object.entries(templateFields).map(([key,id])=>[key,key==='alignWithDates'?alignWithDatesPreference:$(id).type==='checkbox'?$(id).checked:$(id).value]));}
+const baseFormat={row:'{label} ({unit}) {values}\\n',separator:' ',value:'{value}',date:'MM/DD',aligned:true,alignWithDates:false,includeDate:true,separatorDates:false,skipEmpty:true};
+const defaultTemplates=()=>[
+ {name:'Aligned with dates',options:{...baseFormat}},
+ {name:'With units · >',options:{...baseFormat,separator:'> ',aligned:false,includeDate:false}},
+ {name:'Names only · >',options:{...baseFormat,row:'{label}: {values}\\n',separator:' > ',aligned:false,includeDate:false}},
+ {name:'One row',options:{...baseFormat,row:'{label}:{values}, ',separator:'>',aligned:false,includeDate:false}},
+ null,null
+];
+let templates=defaultTemplates();
+let selectedSlot=0,templateDB=null;
+function renderTemplates(){
+ $('formatPresets').replaceChildren(...templates.map((template,index)=>{
+  const button=element('button',`${index+1}. ${template?template.name:'Empty slot'}`,'preset');
+  button.dataset.slot=index;button.classList.toggle('active',index===selectedSlot);
+  button.setAttribute('aria-pressed',String(index===selectedSlot));return button;
+ }));
+}
+function applyTemplate(){
+ const template=templates[selectedSlot];
+ if(template)alignWithDatesPreference=template.options.alignWithDates;
+ if(template)for(const [key,id] of Object.entries(templateFields)){
+  if($(id).type==='checkbox')$(id).checked=template.options[key];else $(id).value=template.options[key];
+ }
+ renderTemplates();updateFormatted();
+ $('templateStatus').textContent=template?`Slot ${selectedSlot+1} selected. Edit the format, then Save to update its name and settings.`:`Slot ${selectedSlot+1} is empty. Adjust the current format, then Save.`;
+}
+$('formatPresets').addEventListener('click',event=>{
+ const button=event.target.closest('[data-slot]');if(!button)return;
+ selectedSlot=Number(button.dataset.slot);applyTemplate();
+});
+for(const id of Object.values(templateFields))$(id).addEventListener('input',()=>{
+ if(id==='alignWithDates')alignWithDatesPreference=$('alignWithDates').checked;
+ updateFormatted();$('templateStatus').textContent=`Unsaved changes for slot ${selectedSlot+1}.`;
+});
+function updateSaveConfirmation(){
+ const slot=Number($('saveSlot').value);
+ $('saveConfirmation').textContent=`Are you sure you want to save to slot ${slot+1}?${templates[slot]?' This will replace its saved name and format.':''}`;
+}
+$('saveSlot').addEventListener('change',updateSaveConfirmation);
+$('saveFormat').addEventListener('click',()=>{
+ $('saveSlot').replaceChildren(...templates.map((template,index)=>{
+  const option=element('option',`${index+1}. ${template?template.name:'Empty slot'}`);option.value=index;return option;
+ }));
+ $('saveSlot').value=String(selectedSlot);
+ $('templateName').value=templates[selectedSlot]?.name||'';
+ updateSaveConfirmation();
+ $('saveError').textContent='';$('saveDialog').showModal();$('templateName').focus();
+});
+$('cancelSave').addEventListener('click',()=>$('saveDialog').close());
+$('saveTemplateForm').addEventListener('submit',async event=>{
+ event.preventDefault();const name=$('templateName').value.trim();
+ if(!name){$('saveError').textContent='Enter a template name.';$('templateName').focus();return;}
+ const slot=Number($('saveSlot').value),template={name,options:currentFormat()};
+ $('confirmSave').disabled=true;$('cancelSave').disabled=true;$('saveSlot').disabled=true;
+ try{
+  await new Promise((resolve,reject)=>{
+   const transaction=templateDB.transaction('templates','readwrite');
+   transaction.objectStore('templates').put(template,slot);
+   transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error);
+  });
+  templates[slot]=template;selectedSlot=slot;renderTemplates();$('saveDialog').close();
+  $('templateStatus').textContent=`Saved “${name}” to slot ${slot+1} in this browser’s website database.`;
+ }catch(error){$('saveError').textContent='Could not save the template. Please try again.';}
+ finally{$('confirmSave').disabled=false;$('cancelSave').disabled=false;$('saveSlot').disabled=false;}
+});
+$('resetTemplates').addEventListener('click',async()=>{
+ if(!window.confirm('You are about to clear all saved templates and restore the default slots. This cannot be undone. Continue?'))return;
+ $('resetTemplates').disabled=true;$('saveFormat').disabled=true;
+ try{
+  await new Promise((resolve,reject)=>{
+   const transaction=templateDB.transaction('templates','readwrite');
+   transaction.objectStore('templates').clear();
+   transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error);
+  });
+  templates=defaultTemplates();selectedSlot=0;applyTemplate();
+  $('templateStatus').textContent='All saved templates cleared. Default slots restored.';
+ }catch(error){$('templateStatus').textContent='Could not reset saved templates. Please try again.';}
+ finally{$('resetTemplates').disabled=false;$('saveFormat').disabled=false;}
+});
+async function loadTemplates(){
+ renderTemplates();
+ try{
+  templateDB=await new Promise((resolve,reject)=>{
+   const request=indexedDB.open('lab-data-formatter',1);
+   request.onupgradeneeded=()=>request.result.createObjectStore('templates');
+   request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+  });
+  const saved=await new Promise((resolve,reject)=>{
+   const transaction=templateDB.transaction('templates','readonly');
+   const requests=templates.map((_,i)=>transaction.objectStore('templates').get(i));
+   transaction.oncomplete=()=>resolve(requests.map(request=>request.result));
+   transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error);
+  });
+  saved.forEach((template,i)=>{
+   if(template&&typeof template.name==='string'&&template.options){
+    const options={alignWithDates:false,...template.options};
+    if(Object.entries(baseFormat).every(([key,value])=>typeof options[key]===typeof value))templates[i]={...template,options};
+   }
+  });
+  applyTemplate();$('saveFormat').disabled=false;$('resetTemplates').disabled=false;
+ }catch(error){$('templateStatus').textContent='Template storage is unavailable. You can still edit and use formats, but saving is disabled.';}
+}
+loadTemplates();
+async function copyFormatted(output,status){
+ try{await navigator.clipboard.writeText(output.textContent);status.textContent='Copied.';}
+ catch{const range=document.createRange();range.selectNodeContents(output);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);status.textContent='Output selected. Press Ctrl+C or ⌘C to copy.';}
+}
+$('copyOutput').addEventListener('click',()=>copyFormatted($('formattedOutput'),$('copyStatus')));
+$('mergeTables').addEventListener('change',updateFormatted);
+function processText(){
+ selectionDrag=null;
+ try {
+  const previous=reports;
+  reports=$('inputText').value.trim()?parseReports($('inputText').value):[];
+  reports.forEach(report=>{
+   const old=previous.find(item=>item.title===report.title);
+   if(old&&JSON.stringify(report.times)===JSON.stringify(old.times)&&JSON.stringify(report.dates)===JSON.stringify(old.dates)&&JSON.stringify(report.rows.map(row=>row.name))===JSON.stringify(old.rows.map(row=>row.name)))for(const key of ['selectedRows','selectedColumns','abg','assignments'])report[key]=old[key].slice();
+  });
+  $('status').textContent=reports.length?`${reports.length} tables · ${reports.reduce((n,r)=>n+r.rows.length,0)} items${reports.some(r=>r.inferred)?' · Verify column dates in the affected tables.':''}${reports.some(r=>r.gas)?' · Blood gas: unchecked = VBG; check ABG separately for each column.':''}`:'';
+ }catch(error){reports=[];$('status').textContent=error.message;}
+ render();
+}
+$('samples').addEventListener('click',event=>{if(event.target.dataset.sample){$('inputText').value=samples[event.target.dataset.sample];processText();}});
+$('inputText').addEventListener('input',processText);
+$('format').addEventListener('click',processText);
+$('clear').addEventListener('click',()=>{$('inputText').value='';processText();});
+$('applyRanges').addEventListener('click',render);
+async function readFile(event,target,callback){const file=event.target.files[0];if(!file)return;try{$(target).value=await file.text();callback();}catch(error){$('status').textContent='Could not read file: '+error.message;}event.target.value='';}
+$('reportFile').addEventListener('change',event=>readFile(event,'inputText',processText));
+$('rangeFile').addEventListener('change',event=>readFile(event,'ranges',render));
+$('ranges').value=defaultRanges;
+processText();
+</script></body></html>

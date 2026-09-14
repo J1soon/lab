@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drug Formatter</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; background: #f8f9fa; color: #333; font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+main { max-width: 960px; margin: auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 20px #00000014; }
+header { padding: 28px; text-align: center; background: linear-gradient(135deg, #347faa, #258577); color: #ffffff; }
+header p { margin: 6px 0 0; opacity: .9; }
+h1 { margin: 0; font-size: 2rem; font-weight: 300; }
+p { margin: 8px 0; }
+section { padding: 24px; }
+label { display: block; font-weight: 600; margin-bottom: 8px; }
+textarea { width: 100%; min-height: 260px; padding: 14px; border: 2px solid #e1e5e9; border-radius: 8px; font: 14px/1.6 ui-monospace, monospace; resize: vertical; }
+textarea:focus { outline: 2px solid #287c91; outline-offset: 2px; }
+textarea[readonly] { background: #f8f9fa; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
+button { padding: 10px 18px; background: #287c91; color: white; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+button:hover:not(:disabled) { background: #206577; }
+button:focus-visible { outline: 2px solid #287c91; outline-offset: 3px; }
+input[type="checkbox"] { accent-color: #287c91; }
+button:disabled { opacity: .45; cursor: default; }
+.checkbox-label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 400; }
+.secondary { background: #eaf5f6; color: #285b69; }
+.secondary:hover:not(:disabled) { background: #d7ecef; }
+small { color: #626873; }
+footer { max-width: 960px; margin: 32px auto 0; padding: 6px 0 48px; color: #8a949f; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; line-height: 1.65; text-align: center; -webkit-font-smoothing: antialiased; }
+#status { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0; padding: 16px 18px; border: 1px solid #bfdde3; border-left: 4px solid #39899a; border-radius: 8px; background: #f0f8fa; color: #285768; }
+#statusIcon { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 50%; background: #d7edf1; font-weight: 700; }
+#statusTitle { display: block; font-size: 16px; }
+#statusMessage { margin: 3px 0 0; white-space: pre-line; overflow-wrap: anywhere; font-size: 15px; }
+#status[data-state="success"] { background: #ecfdf5; border-color: #a7dfc3; border-left-color: #23825a; color: #185b40; }
+#status[data-state="success"] #statusIcon { background: #cef2df; }
+#status[data-state="error"] { background: #fff7ed; border-color: #f2c99c; border-left-color: #b65c16; color: #85400d; }
+#status[data-state="error"] #statusIcon { background: #ffe5c7; }
+@media (max-width: 600px) { body { padding: 12px; } section, header { padding: 18px; } }
+</style>
+</head>
+<body>
+<main>
+<header><h1>Drug Formatter</h1><p>Clean up medication information into one drug per line.</p></header>
+<section>
+<label for="inputText">Raw text</label>
+<textarea id="inputText" placeholder="Paste drug contents here..." spellcheck="false"></textarea>
+<div class="controls"><button id="demo" class="secondary" type="button">自備藥範例</button><button id="inpatientDemo" class="secondary" type="button">一般處方範例</button><button id="clear" class="secondary" type="button">Clear</button><label class="checkbox-label" for="retainBrand"><input id="retainBrand" type="checkbox" checked> 保留括弧內商品名</label></div>
+<p><small>Keeps the full drug name, dose, unit, frequency, and route. Removes status, date, time, [自備藥], and trailing administrative fields. Check 保留括弧內商品名 to keep parenthesized brand/package information in inpatient prescriptions. All processing stays in your browser.</small></p>
+<div id="status" data-state="info" role="status" aria-live="polite" aria-atomic="true">
+<span id="statusIcon" aria-hidden="true">i</span>
+<div><strong id="statusTitle">Ready to format</strong><p id="statusMessage">Paste copied medication information to begin.</p></div>
+</div>
+<label for="output">Result</label>
+<textarea id="output" readonly placeholder="Drug name · dose · unit · frequency · route" spellcheck="false"></textarea>
+<div class="controls"><button id="copy" type="button" disabled>Copy result</button></div>
+</section>
+</main>
+<footer>© 2025–2026 J1soon. All rights reserved.</footer>
+<script>
+// Administrative prefixes and trailing fields are optional. Keep dose fields intact.
+function formatDrugText(text, retainBrand = false) {
+    // Inpatient prescriptions include brand/package information in parentheses.
+    // Preserve self-provided names and parentheses without package units.
+    function drugName(name, selfProvided) {
+        return retainBrand || selfProvided ? name : name.replace(/\s+\(.*\/.*\)$/, '');
+    }
+    const lines = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split('\n');
+    const prefix = /^\S+\s+\S+\s+\d{8}\s+\d+\s+/;
+    const dose = '(\\d+(?:\\.\\d+)?|\\d+/\\d+)\\s+(\\S+)\\s+([A-Z][A-Z0-9./-]*)\\s+([A-Z][A-Z0-9/-]*)';
+    const detailPattern = new RegExp('^' + dose + '(?:\\s+\\d+(?:\\.\\d+)?(?:\\s+.*)?)?$');
+    const fullPattern = new RegExp('^(.+?)\\s+' + dose + '(?:\\s+\\d+(?:\\.\\d+)?(?:\\s+.*)?)?$');
+    const output = [];
+    const errors = [];
+    let current = null;
+    lines.forEach((source, index) => {
+        let line = source.trim();
+        if (!line) return;
+        const hasPrefix = prefix.test(line);
+        const selfProvided = line.replace(prefix, '').startsWith('[自備藥]');
+        line = line.replace(prefix, '').replace(/^\[自備藥\]\s*/, '');
+        if (hasPrefix && current) {
+            errors.push(`Line ${current.line}: could not read dose, unit, frequency, and route.`);
+            current = null;
+        }
+        if (!current) {
+            // A copied trailing administrative line may remain after the route.
+            if (/^(?:0(?:\s+.*)?|健|自)$/.test(line)) return;
+            const full = line.match(fullPattern);
+            if (full) output.push([drugName(full[1], selfProvided), ...full.slice(2, 6)].join(' '));
+            else current = { name: drugName(line, selfProvided), details: [], line: index + 1 };
+        } else {
+            current.details.push(line);
+            const detail = current.details.join(' ').match(detailPattern);
+            if (detail) {
+                output.push([current.name, ...detail.slice(1, 5)].join(' '));
+                current = null;
+            }
+        }
+    });
+    if (current) errors.push(`Line ${current.line}: could not read dose, unit, frequency, and route.`);
+    return { text: errors.length ? '' : output.join('\n'), count: output.length, errors };
+}
+
+const input = document.getElementById('inputText');
+const output = document.getElementById('output');
+const status = document.getElementById('status');
+const copy = document.getElementById('copy');
+const retainBrand = document.getElementById('retainBrand');
+function showStatus(state, title, message) {
+    status.dataset.state = state;
+    document.getElementById('statusIcon').textContent = state === 'success' ? '✓' : state === 'error' ? '!' : 'i';
+    document.getElementById('statusTitle').textContent = title;
+    document.getElementById('statusMessage').textContent = message;
+}
+function processText() {
+    const result = formatDrugText(input.value, retainBrand.checked);
+    output.value = result.text;
+    copy.disabled = !result.text;
+    if (result.errors.length) {
+        showStatus('error', 'Check your input', 'No result generated.\n' + result.errors.join('\n'));
+    } else if (result.count) {
+        showStatus('success', `${result.count} medications formatted`, 'Your result is ready below. Select Copy result to copy it.');
+    } else {
+        showStatus('info', 'Ready to format', 'Paste copied medication information to begin.');
+    }
+}
+input.addEventListener('input', processText);
+retainBrand.addEventListener('change', processText);
+document.getElementById('clear').addEventListener('click', () => {
+    input.value = ''; processText(); input.focus();
+});
+copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(output.value); showStatus('success', 'Result copied', 'You can now paste it where you need it.'); }
+    catch { output.focus(); output.select(); showStatus('info', 'Ready to copy', 'Result selected. Press Ctrl+C or Command+C to copy.'); }
+});
+const demoRaw = "確認\t \t一般\t20260909\t16\t[自備藥]Detrusitol SR 4 mg/cap\t\n1\tcap\nHS\tPO\t0\t \t健\n確認\t \t一般\t20260909\t16\t[自備藥](管4) Utraphen FC /tab\t\n1\ttab\nQ6H\tPO\t0\t \t健\n確認\t \t一般\t20260909\t16\t[自備藥]Glimepine 2mg\t\n1\ttab\nQN\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]MgO 250 mg/tab\t\n1\ttab\nQID\tPO\t0\t \t健\n確認\t \t一般\t20260909\t16\t[自備藥]Amlodipine 5mg\t\n1\ttab\nQN\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Avodart Soft Cap 0.5 mg/cap\t\n1\tcap\nHS\tPO\t0\t \t健\n確認\t \t一般\t20260909\t16\t[自備藥]Harnalidge 0.4mg\t\n1\ttab\nHS\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Dexilant 60mg\t\n1\tcap\nQD\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Acetal 500 mg/tab\t\n1\ttab\nQID\tPO\t0\t \t健\n確認\t \t一般\t20260909\t16\t[自備藥]Losater 100mg\t\n1\ttab\nQN\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Lansoprazole (RICH 30mg)\t\n1\tcap\nQDAC\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Apo-zopiclone 7.5mg\t\n1\ttab\nHS\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Mesyrel 50mg\t\n1\ttab\nHS\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Lorazin 1mg\t\n1.5\ttab\nHS\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Metformin 850mg\t\n1\ttab\nQN\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Sennoside 20mg\t\n1\ttab\nHS\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Mexiletine 100mg\t\n1\tcap\nBID\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Synpid 200mg\t\n1\ttab\nQN\tPO\t0\t \t \n確認\t \t一般\t20260909\t16\t[自備藥]Actein Effervescent Tablet 600 mg/tab\t\n1\ttab\nBID\tPO\t0\t \t健";
+const inpatientDemoRaw = "確認    一般 20251008 13 Amlodipine besylate (Norvasc 5 mg/tab)  \n\n1\n  tab  \n QD PO 0  健   \n      確認    一般 20251008 13 Metoclopramide HCl (針 Primperan Inj 10 mg/2 mL /amp)  \n\n5\n  mg  \n Q8H IV 0  健   \n      確認    一般 20251008 13 Esomeprazole (Esomelone for Inj 40 mg/vial)  \n\n40\n  mg  \n QD IV 0  自   \n      確認    一般 20251008 13 Sodium Chloride (袋 Norm-Saline Inj. 0.9% 500 mL/bag)  \n\n500\n  mL  \n QD IF 0  健   \n      確認    一般 20251008 13 Dextrose and Electrolyte Solution (Taita No.5 400 mL/bag (台5))  \n\n800\n  mL  \n QD IF 0  健   \n      確認    一般 20251008 13 Insulin Regular (警 Humulin R 1000 U/10 mL /vial)  \n\n16\n  U  \n QD IF 0 特殊醫囑: 8U in 400ml T5  健   \n      確認    一般 20251008 15 Tamsulosin HCl (HARNALIDGE D 0.2 mg/tab)  \n\n1\n  tab  \n QD LZ 0 特殊醫囑: UDD  健   \n      確認    一般 20251008 15 Atorvastatin calcium (Lipitor 20 mg/tab)  \n\n0.5\n  tab  \n QD PO 0 特殊醫囑: UDD  健   \n      確認    一般 20251008 18 Nicorandil (Sigmart 5 mg/tab)  \n\n1\n  tab  \n BID PO 0 特殊醫囑: UDD  健   \n      確認    一般 20251008 18 Thiamine Tetrahydrofurfuryl Disulfide (Alinamin-F50 /tab)  \n\n1\n  tab  \n BID PO 0 特殊醫囑: UDD  健   \n      確認    一般 20251008 21 Sennoside A+B (Sennapur 12.5 mg/tab)  \n\n2\n  tab  \n HS PO 0 特殊醫囑: UDD  健";
+function loadDemo(text = demoRaw) {
+    input.value = text;
+    processText();
+}
+document.getElementById('demo').addEventListener('click', () => loadDemo());
+document.getElementById('inpatientDemo').addEventListener('click', () => loadDemo(inpatientDemoRaw));
+processText();
+</script>
+</body>
+</html>
