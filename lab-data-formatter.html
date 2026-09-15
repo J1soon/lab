@@ -17,7 +17,7 @@ footer { max-width: 960px; margin: 32px auto 0; padding: 6px 0 48px; color: #8a9
 </style>
 </head>
 <body><main class="container"><header class="header"><h1>Lab Data Formatter</h1><p>Turn copied lab results into a color-coded table and formatted text</p></header><div class="content">
-<section class="section input-section"><h2><label for="inputText">Input Text</label></h2><div class="controls" id="samples"><span>Load sample:</span><button data-sample="CBC">CBC</button><button data-sample="BCS">BCS</button><button data-sample="COAG">COAG</button><button data-sample="VBG">VBG</button><button data-sample="UA">UA</button><button data-sample="MULTIPLE">多重表格</button></div><textarea id="inputText" spellcheck="false" placeholder="Paste one or more CBC, BCS, COAG, blood gas, or UA tables here. Keep tabs to preserve empty cells."></textarea><div class="controls"><label class="file-button">Open report <input id="reportFile" type="file" accept=".txt,text/plain"></label><button class="primary" id="format">Format Table</button><button id="clear">Clear</button></div><p class="hint">Paste one or more report types. Paginated tables of the same type are merged. Empty tab-separated cells are preserved. Files are processed locally in your browser.</p></section>
+<section class="section input-section"><h2><label for="inputText">Input Text</label></h2><div class="controls" id="samples"><span>Load sample:</span><button data-sample="CBC">CBC</button><button data-sample="BCS">BCS</button><button data-sample="COAG">COAG</button><button data-sample="VBG">VBG</button><button data-sample="UA">UA</button><button data-sample="MULTIPLE">多重表格</button></div><textarea id="inputText" spellcheck="false" placeholder="Paste one or more CBC, BCS, COAG, blood gas, or UA tables here. Keep tabs or Edge's repeated spaces to preserve empty cells."></textarea><div class="controls"><label class="file-button">Open report <input id="reportFile" type="file" accept=".txt,text/plain"></label><button class="primary" id="format">Format Table</button><button id="clear">Clear</button></div><p class="hint">Paste one or more report types. Paginated tables of the same type are merged. Empty tab-separated cells and Edge's repeated-space cells are preserved. Files are processed locally in your browser.</p></section>
 <details><summary>Normal ranges</summary><p class="hint">Loaded from the supplied Normal Range.txt. Edit here or open an updated file. Values with blank or unavailable ranges are black. Strict limits such as &lt;14 mark 14 and above red, with no blue values.</p><p class="hint">PTT uses aPTT; CRP uses hsCRP.</p><textarea id="ranges" aria-label="Normal ranges" spellcheck="false"></textarea><div class="controls"><label class="file-button">Open ranges <input id="rangeFile" type="file" accept=".txt,text/plain"></label><button id="applyRanges">Apply Ranges</button></div></details>
 <section class="section"><h2>Output</h2><div class="legend"><span class="high">Red · High</span><span class="low">Blue · Low</span><span class="normal">Gray · Normal</span><span class="unknown">Black · No range</span></div><p id="status" role="status" aria-live="polite"></p><div class="controls selection-controls"><button id="selectAll">Select all</button><button id="selectRows">All rows</button><button id="selectColumns">All columns</button><button id="clearSelection">Clear selection</button></div><p class="hint">Check rows and columns to include their intersections in formatted output. Drag from a selection checkbox to check or uncheck a continuous group. Yellow marks selected rows or columns.</p><div id="output"></div></section>
 <section class="section"><h2>Formatted Output</h2><p id="selectionStatus" role="status"></p>
@@ -116,6 +116,19 @@ function classifyUrine(value, range) {
  }
  return classify(numeric,range);
 }
+function parseSpaceRow(line) {
+ const match=line.trimStart().match(/^(.+?\)) (.*)$/);
+ if(!match) throw new Error('Could not read row: '+line);
+ const values=[], body=match[2], tokens=/(?:[<>≤≥≦≧]=? *)?[^\s()]+(?: *\([^)]*\))?/g;
+ let previous=0, token;
+ while((token=tokens.exec(body))) {
+  // Each extra separator space represents an empty cell in Edge's copied text.
+  values.push(...Array(token.index-previous-(previous?1:0)).fill(''));
+  values.push(token[0].trim());
+  previous=tokens.lastIndex;
+ }
+ return [match[1],...values];
+}
 function parseReport(text) {
  const lines=text.replace(/\r/g,'').split('\n').filter(line=>line.trim());
  if(lines.length<3) throw new Error('Paste a report with a date header, collection times, and result rows.');
@@ -126,7 +139,7 @@ function parseReport(text) {
  const rows=lines.slice(2).map(line=>{
   let cells;
   if(line.includes('\t')) cells=line.replace(/^ +/,'').split('\t');
-  else {const m=line.trim().match(/^(.*?\))\s+(?=[<>≤≥≦≧+\-\d]|Dilute)(.+)$/i);if(!m) throw new Error('Could not read row: '+line);const values=m[2].match(/(?:[<>≤≥≦≧]=?\s*)?[^\s()]+(?:\s*\([^)]*\))?/g)||[];cells=[m[1],...values];}
+  else cells=parseSpaceRow(line);
   const name=cells.shift().trim();
   if(cells.length>times.length) throw new Error('Too many values in '+name+'. Keep the original tabs and collection times.');
   return {name,values:Array.from({length:times.length},(_,i)=>(cells[i]||'').trim())};
