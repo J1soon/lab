@@ -18,14 +18,23 @@ textarea { width: 100%; min-height: 260px; padding: 14px; border: 2px solid #e1e
 textarea:focus { outline: 2px solid #287c91; outline-offset: 2px; }
 textarea[readonly] { background: #f8f9fa; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
-button { padding: 10px 18px; background: #287c91; color: white; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
-button:hover:not(:disabled) { background: #206577; }
-button:focus-visible { outline: 2px solid #287c91; outline-offset: 3px; }
+button { padding: 8px 14px; background: white; color: #555; border: 1px solid #dce0e7; border-radius: 6px; font: inherit; font-size: 14px; cursor: pointer; }
+button:hover:not(:disabled) { background: #eaf5f6; border-color: #347faa; }
+button:focus-visible { outline: 2px solid #258577; outline-offset: 3px; }
 input[type="checkbox"] { accent-color: #287c91; }
 button:disabled { opacity: .45; cursor: default; }
 .checkbox-label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 400; }
-.secondary { background: #eaf5f6; color: #285b69; }
-.secondary:hover:not(:disabled) { background: #d7ecef; }
+.primary, .preset.active { background: #347faa; color: white; }
+.primary:hover:not(:disabled) { background: #258577; color: white; border-color: #258577; }
+.preset:not(.active):hover:not(:disabled) { background: rgba(52, 127, 170, .12); }
+.preset.active:hover:not(:disabled) { background: #347faa; color: white; border-color: #347faa; }
+.preset.active { outline: 2px solid #347faa; outline-offset: 2px; }
+.format-input { width: 100%; padding: 9px 12px; border: 2px solid #e1e5e9; border-radius: 6px; font: 14px ui-monospace, monospace; }
+.template-dialog { border: 0; border-radius: 10px; padding: 24px; width: min(440px, calc(100vw - 32px)); box-shadow: 0 12px 40px #0004; }
+.template-dialog::backdrop { background: #0006; }
+.template-dialog h2 { margin-top: 0; }
+.template-dialog label { margin-top: 12px; }
+.template-dialog .controls { justify-content: flex-end; }
 small { color: #626873; }
 footer { max-width: 960px; margin: 32px auto 0; padding: 6px 0 48px; color: #8a949f; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; line-height: 1.65; text-align: center; -webkit-font-smoothing: antialiased; }
 #status { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0; padding: 16px 18px; border: 1px solid #bfdde3; border-left: 4px solid #39899a; border-radius: 8px; background: #f0f8fa; color: #285768; }
@@ -41,21 +50,27 @@ footer { max-width: 960px; margin: 32px auto 0; padding: 6px 0 48px; color: #8a9
 </head>
 <body>
 <main>
-<header><h1>Drug Formatter</h1><p>Clean up medication information into one drug per line.</p></header>
+<header><h1>Drug Formatter</h1><p>Clean up medication information using your chosen format.</p></header>
 <section>
 <label for="inputText">Raw text</label>
 <textarea id="inputText" placeholder="Paste drug contents here..." spellcheck="false"></textarea>
 <div class="controls"><button id="demo" class="secondary" type="button">自備藥範例</button><button id="inpatientDemo" class="secondary" type="button">一般處方範例</button><button id="clear" class="secondary" type="button">Clear</button><label class="checkbox-label" for="retainBrand"><input id="retainBrand" type="checkbox" checked> 保留括弧內商品名</label></div>
 <p><small>Keeps the full drug name, dose, unit, frequency, and route. Removes status, date, time, [自備藥], and trailing administrative fields. Check 保留括弧內商品名 to keep parenthesized brand/package information in inpatient prescriptions. All processing stays in your browser.</small></p>
+<label>Format templates</label><div class="controls" id="formatPresets" aria-label="Template slots"></div>
+<p id="templateStatus" role="status">Loading saved templates…</p>
+<label for="customFormat">Custom format</label><input id="customFormat" class="format-input" spellcheck="false" value="{drug} {dosage} {unit} {frequency} {route}\n">
+<p><small>Placeholders: {drug}, {dosage}, {unit}, {frequency}, {route}. Use \n for a newline or \t for a tab.</small></p>
+<div class="controls"><button id="saveFormat" class="primary" type="button" disabled>Save</button><button id="resetTemplates" class="secondary" type="button" disabled>Restore defaults</button></div>
 <div id="status" data-state="info" role="status" aria-live="polite" aria-atomic="true">
 <span id="statusIcon" aria-hidden="true">i</span>
 <div><strong id="statusTitle">Ready to format</strong><p id="statusMessage">Paste copied medication information to begin.</p></div>
 </div>
 <label for="output">Result</label>
 <textarea id="output" readonly placeholder="Drug name · dose · unit · frequency · route" spellcheck="false"></textarea>
-<div class="controls"><button id="copy" type="button" disabled>Copy result</button></div>
+<div class="controls"><button id="copy" class="primary" type="button" disabled>Copy result</button></div>
 </section>
 </main>
+<dialog id="saveDialog" class="template-dialog" aria-labelledby="saveTitle"><form id="saveTemplateForm"><h2 id="saveTitle">Save template</h2><label for="templateName">Template name</label><input id="templateName" class="format-input" required maxlength="80" autocomplete="off"><label for="saveSlot">Save to slot</label><select id="saveSlot" class="format-input"></select><p id="saveConfirmation"></p><p id="saveError" role="alert"></p><div class="controls"><button id="confirmSave" class="primary" type="submit">Save</button><button id="cancelSave" class="secondary" type="button">Cancel</button></div></form></dialog>
 <footer>© 2025–2026 J1soon. All rights reserved.</footer>
 <script>
 // Administrative prefixes and trailing fields are optional. Keep dose fields intact.
@@ -87,20 +102,142 @@ function formatDrugText(text, retainBrand = false) {
             // A copied trailing administrative line may remain after the route.
             if (/^(?:0(?:\s+.*)?|健|自)$/.test(line)) return;
             const full = line.match(fullPattern);
-            if (full) output.push([drugName(full[1], selfProvided), ...full.slice(2, 6)].join(' '));
+            if (full) output.push({drug: drugName(full[1], selfProvided), dosage: full[2], unit: full[3], frequency: full[4], route: full[5]});
             else current = { name: drugName(line, selfProvided), details: [], line: index + 1 };
         } else {
             current.details.push(line);
             const detail = current.details.join(' ').match(detailPattern);
             if (detail) {
-                output.push([current.name, ...detail.slice(1, 5)].join(' '));
+                output.push({drug: current.name, dosage: detail[1], unit: detail[2], frequency: detail[3], route: detail[4]});
                 current = null;
             }
         }
     });
     if (current) errors.push(`Line ${current.line}: could not read dose, unit, frequency, and route.`);
-    return { text: errors.length ? '' : output.join('\n'), count: output.length, errors };
+    return { drugs: output, count: output.length, errors };
 }
+
+const $ = id => document.getElementById(id);
+const defaultTemplates = () => [
+    {name: 'Formal', format: '{drug} {dosage} {unit} {frequency} {route}\\n'},
+    {name: 'Name only', format: '{drug}\\n'},
+    {name: 'Name & route', format: '{drug} ({route})\\n'},
+    {name: 'Compact', format: '{drug}, '},
+    null, null
+];
+let templates = defaultTemplates();
+let selectedSlot = 0;
+let templateDB = null;
+function renderTemplates() {
+    $('formatPresets').replaceChildren(...templates.map((template, index) => {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'preset' + (index === selectedSlot ? ' active' : '');
+        button.textContent = `${index + 1}. ${template ? template.name : 'Empty slot'}`;
+        button.dataset.slot = index;
+        button.setAttribute('aria-pressed', String(index === selectedSlot));
+        return button;
+    }));
+}
+function applyTemplate() {
+    const template = templates[selectedSlot];
+    if (template) $('customFormat').value = template.format;
+    renderTemplates(); processText();
+    $('templateStatus').textContent = template
+        ? `Slot ${selectedSlot + 1} selected. Edit the format, then Save to update its name and format.`
+        : `Slot ${selectedSlot + 1} is empty. Adjust the current format, then Save.`;
+}
+function formatDrugs(drugs, format) {
+    return drugs.map(drug => format.replace(/\{(drug|dosage|unit|frequency|route)\}|\\n|\\t/g,
+        token => token === '\\n' ? '\n' : token === '\\t' ? '\t' : drug[token.slice(1, -1)])).join('');
+}
+function updateSaveConfirmation() {
+    const slot = Number($('saveSlot').value);
+    $('saveConfirmation').textContent = `Are you sure you want to save to slot ${slot + 1}?${templates[slot] ? ' This will replace its saved name and format.' : ''}`;
+}
+async function loadTemplates() {
+    renderTemplates();
+    try {
+        templateDB = await new Promise((resolve, reject) => {
+            const request = indexedDB.open('drug-formatter-2', 1);
+            request.onupgradeneeded = () => request.result.createObjectStore('templates');
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+        const saved = await new Promise((resolve, reject) => {
+            const transaction = templateDB.transaction('templates', 'readonly');
+            const requests = templates.map((_, index) => transaction.objectStore('templates').get(index));
+            transaction.oncomplete = () => resolve(requests.map(request => request.result));
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+        saved.forEach((template, index) => {
+            if (template && typeof template.name === 'string' && typeof template.format === 'string') templates[index] = template;
+        });
+        applyTemplate(); $('saveFormat').disabled = false; $('resetTemplates').disabled = false;
+    } catch {
+        applyTemplate();
+        $('templateStatus').textContent = 'Template storage is unavailable. You can still edit and use formats, but saving is disabled.';
+    }
+}
+$('formatPresets').addEventListener('click', event => {
+    const button = event.target.closest('[data-slot]');
+    if (!button) return;
+    selectedSlot = Number(button.dataset.slot); applyTemplate();
+});
+$('customFormat').addEventListener('input', () => {
+    processText(); $('templateStatus').textContent = `Unsaved changes for slot ${selectedSlot + 1}.`;
+});
+$('saveFormat').addEventListener('click', () => {
+    $('saveSlot').replaceChildren(...templates.map((template, index) => {
+        const option = document.createElement('option');
+        option.value = index; option.textContent = `${index + 1}. ${template ? template.name : 'Empty slot'}`;
+        return option;
+    }));
+    $('saveSlot').value = String(selectedSlot);
+    $('templateName').value = templates[selectedSlot]?.name || '';
+    $('saveError').textContent = ''; updateSaveConfirmation();
+    $('saveDialog').showModal(); $('templateName').focus();
+});
+$('saveSlot').addEventListener('change', updateSaveConfirmation);
+$('cancelSave').addEventListener('click', () => $('saveDialog').close());
+$('saveTemplateForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const name = $('templateName').value.trim();
+    if (!name) { $('saveError').textContent = 'Enter a template name.'; return; }
+    const slot = Number($('saveSlot').value);
+    const template = {name, format: $('customFormat').value};
+    $('confirmSave').disabled = true; $('cancelSave').disabled = true; $('saveSlot').disabled = true;
+    try {
+        await new Promise((resolve, reject) => {
+            const transaction = templateDB.transaction('templates', 'readwrite');
+            transaction.objectStore('templates').put(template, slot);
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+        templates[slot] = template; selectedSlot = slot;
+        renderTemplates(); $('saveDialog').close();
+        $('templateStatus').textContent = `Saved “${name}” to slot ${slot + 1} in this browser’s website database.`;
+    } catch { $('saveError').textContent = 'Could not save the template. Please try again.'; }
+    finally { $('confirmSave').disabled = false; $('cancelSave').disabled = false; $('saveSlot').disabled = false; }
+});
+$('resetTemplates').addEventListener('click', async () => {
+    if (!window.confirm('You are about to clear all saved templates and restore the default slots. This cannot be undone. Continue?')) return;
+    $('resetTemplates').disabled = true; $('saveFormat').disabled = true;
+    try {
+        await new Promise((resolve, reject) => {
+            const transaction = templateDB.transaction('templates', 'readwrite');
+            transaction.objectStore('templates').clear();
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+        templates = defaultTemplates(); selectedSlot = 0; applyTemplate();
+        $('templateStatus').textContent = 'All saved templates cleared. Default slots restored.';
+    } catch { $('templateStatus').textContent = 'Could not reset saved templates. Please try again.'; }
+    finally { $('resetTemplates').disabled = false; $('saveFormat').disabled = false; }
+});
+loadTemplates();
 
 const input = document.getElementById('inputText');
 const output = document.getElementById('output');
@@ -115,8 +252,8 @@ function showStatus(state, title, message) {
 }
 function processText() {
     const result = formatDrugText(input.value, retainBrand.checked);
-    output.value = result.text;
-    copy.disabled = !result.text;
+    output.value = result.errors.length ? '' : formatDrugs(result.drugs, $('customFormat').value);
+    copy.disabled = !output.value;
     if (result.errors.length) {
         showStatus('error', 'Check your input', 'No result generated.\n' + result.errors.join('\n'));
     } else if (result.count) {
