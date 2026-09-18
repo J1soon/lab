@@ -14,9 +14,10 @@
 dialog{border:0;border-radius:12px;padding:24px;width:min(440px,90vw);box-shadow:0 8px 40px #0003}dialog::backdrop{background:#0006}dialog label{display:block}#templateStatus{font-size:13px;color:#666}.preset.active{outline:2px solid #667eea;outline-offset:2px}
 .primary:hover:not(:disabled){background:#764ba2;border-color:#764ba2;color:white}
 .preset.active:hover:not(:disabled){background:#667eea;border-color:#667eea;color:white}
-button:focus-visible,select:focus-visible,summary:focus-visible,textarea:focus-visible,.format-input:focus-visible{outline:2px solid #764ba2;outline-offset:3px}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid #764ba2;outline-offset:3px}
 .preset:focus-visible{outline-color:#667eea}
 .preset.active:focus-visible{outline-color:#764ba2}
+textarea:focus,.format-input:focus{border-color:#667eea;outline:none}
 footer { max-width: 960px; margin: 32px auto 0; padding: 6px 0 48px; color: #8a949f; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; line-height: 1.65; text-align: center; -webkit-font-smoothing: antialiased; }
 [hidden]{display:none!important}
 </style>
@@ -28,13 +29,14 @@ footer { max-width: 960px; margin: 32px auto 0; padding: 6px 0 48px; color: #8a9
 <section class="section"><h2>Formatted Output</h2><p id="selectionStatus" role="status"></p>
 <div class="controls" id="formatPresets" aria-label="Template slots"></div><p id="templateStatus" role="status">Loading saved templates…</p>
 <div class="format-grid">
-<label>Row format<input class="format-input" id="customFormat" value="{label} ({unit}) {values}\n" spellcheck="false"></label>
+<label>Header<input class="format-input" id="customFormat" value="{label} ({unit}) {values}\n" spellcheck="false"></label>
 <label>Between values<input class="format-input" id="valueSeparator" value=" " spellcheck="false"></label>
+<label>Each value<input class="format-input" id="eachValue" value="{value}" spellcheck="false"></label>
 <label>Fill empty cell with<input class="format-input" id="emptyCell" value="-" spellcheck="false"></label>
 <label>Date format<input class="format-input" id="dateFormat" value="MM/DD" spellcheck="false"></label>
 </div>
 <div class="controls"><label><input type="checkbox" id="aligned" checked> Align columns</label><label><input type="checkbox" id="alignWithDates" checked disabled> Align with dates</label><label><input type="checkbox" id="includeDate" checked> Include dates</label><label><input type="checkbox" id="transposeOutput"> Transpose</label><label><input type="checkbox" id="skipEmpty" checked> Omit empty columns</label><button class="primary" id="saveFormat" disabled>Save</button><button id="resetTemplates" disabled>Restore defaults</button></div>
-<p class="hint">Row placeholders: {label} = label without units, {name} = alias for {label}, {unit} = unit, {values} = selected values. Date tokens: YYYY, MM, DD (zero-padded), M, D (no leading zeroes). Example: M/D → 9/1. Use \n for a newline or \t for a tab. Alignment preserves row-format text and adds padding before and between values. Empty cells use “Fill empty cell with”. If that field is blank, empty cells are omitted when alignment is off. With a blank fill, alignment on, and dates hidden, values start at the left; “Align with dates” preserves their original date positions, even when empty cells are not replaced with other characters.</p>
+<p class="hint">Header placeholders: {label} = label without units, {unit} = unit, {values} = selected values. Each value placeholders: {value} = value, (unit) = unit, {level} = ↑ for high or ↓ for low. Date tokens: YYYY, MM, DD (zero-padded), M, D (no leading zeroes). Example: M/D → 9/1. Use \n for a newline or \t for a tab. Alignment preserves row-format text and adds padding before and between values. Empty cells use “Fill empty cell with”. If that field is blank, empty cells are omitted when alignment is off. With a blank fill, values start at the left unless “Align with dates” is selected.</p>
 <div class="controls" id="mergeTablesControl" hidden><label><input type="checkbox" id="mergeTables"> Align data across table types</label></div>
 <pre class="formatted-output" id="formattedOutput" tabindex="0" aria-label="Formatted selected data"></pre><div class="controls"><button id="copyOutput">Copy output</button><span id="copyStatus" role="status"></span></div>
 </section></div></main>
@@ -311,7 +313,13 @@ function rowParts(label) {
  const groups=Array.from(label.matchAll(/\(([^()]*)\)/g));
  const last=groups.at(-1);
  const name=last?label.slice(0,last.index).trim():label;
- return {label:name,name,unit:last?last[1]:''};
+ return {label:name,unit:last?last[1]:''};
+}
+function valueState(report,row,index,ranges) {
+ if(row.states)return row.states[index];
+ const key=canonical(row.name);
+ const range=report.urine?ranges.UA[urineKey(row.name)]:(report.gas?ranges[report.abg[index]?'ABG':'VBG'][key]:undefined)??ranges.GENERAL[key];
+ return report.urine?classifyUrine(row.values[index],range):classify(row.values[index],range);
 }
 function formatSelected(data,options) {
  if(!data)return '';
@@ -320,9 +328,12 @@ function formatSelected(data,options) {
  if(options.skipEmpty)columns=columns.filter(i=>rows.some(row=>row.values[i].trim()));
  if(!rows.length||!columns.length)return '';
  const date=i=>{const [YYYY,MM,DD]=data.dates[data.assignments[i]].split(/[/-]/);return options.date.replace(/YYYY|MM|DD|M|D/g,key=>({YYYY,MM,DD,M:String(Number(MM)),D:String(Number(DD))})[key]);};
+ const ranges=parseRanges($('ranges').value),valueTemplate=unescapeFormat(options.eachValue??'{value}');
  const values=rows.map(row=>columns.map(i=>{
   const value=row.values[i].replace(/歷/g,'').trim();
-  return value||(options.emptyCell??'-');
+  if(!value)return options.emptyCell??'-';
+  const state=valueState(data,row,i,ranges),unit=rowParts(row.name).unit;
+  return fillTemplate(valueTemplate.replace(/\(unit\)/g,()=>unit),{value,unit,level:state==='high'?'↑':state==='low'?'↓':''});
  }));
  if(options.transposeOutput)return formatTransposed(rows,columns.map(date),values,options);
  if(options.aligned&&!options.includeDate&&!options.alignWithDates){
@@ -360,7 +371,7 @@ function formatTransposed(rows,dates,values,options) {
  return matrix.map(row=>row.map((cell,index)=>options.aligned?cell.padEnd(widths[index]):cell).join(separator)).join('\n')+'\n';
 }
 function mergeSelectedReports(data) {
- const columns=new Map(),selected=[];
+ const columns=new Map(),selected=[],ranges=parseRanges($('ranges').value);
  data.forEach(report=>{
   const rows=report.rows.filter((_,i)=>report.selectedRows[i]);
   if(!rows.length)return;
@@ -373,14 +384,14 @@ function mergeSelectedReports(data) {
    occurrences.set(date,occurrence+1);
    columns.set(key,{key,date,occurrence});mapping.push({source:i,key});
   });
-  if(mapping.length)selected.push({rows,mapping});
+  if(mapping.length)selected.push({rows,mapping,report});
  });
  const ordered=[...columns.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.occurrence-b.occurrence);
  const indices=new Map(ordered.map((column,i)=>[column.key,i]));
- const rows=selected.flatMap(({rows,mapping})=>rows.map(row=>{
-  const values=ordered.map(()=>'');
-  mapping.forEach(({source,key})=>{values[indices.get(key)]=row.values[source];});
-  return {name:row.name,values};
+ const rows=selected.flatMap(({rows,mapping,report})=>rows.map(row=>{
+  const values=ordered.map(()=>''),states=ordered.map(()=>'unknown');
+  mapping.forEach(({source,key})=>{const index=indices.get(key);values[index]=row.values[source];states[index]=valueState(report,row,source,ranges);});
+  return {name:row.name,values,states};
  }));
  return {rows,dates:ordered.map(column=>column.date),times:ordered.map(()=>''),assignments:ordered.map((_,i)=>i),selectedRows:rows.map(()=>true),selectedColumns:ordered.map(()=>true)};
 }
@@ -424,14 +435,14 @@ $('output').addEventListener('click',event=>{if(event.detail>0&&event.target.clo
 for(const [id,rows,columns,value] of [['selectAll',true,true,true],['selectRows',true,false,true],['selectColumns',false,true,true],['clearSelection',true,true,false]]){
  $(id).addEventListener('click',()=>{reports.forEach(report=>{if(rows)report.selectedRows.fill(value);if(columns)report.selectedColumns.fill(value);});updateSelection();});
 }
-const templateFields={transposeOutput:'transposeOutput',row:'customFormat',separator:'valueSeparator',emptyCell:'emptyCell',date:'dateFormat',aligned:'aligned',alignWithDates:'alignWithDates',includeDate:'includeDate',skipEmpty:'skipEmpty'};
+const templateFields={transposeOutput:'transposeOutput',row:'customFormat',separator:'valueSeparator',eachValue:'eachValue',emptyCell:'emptyCell',date:'dateFormat',aligned:'aligned',alignWithDates:'alignWithDates',includeDate:'includeDate',skipEmpty:'skipEmpty'};
 let alignWithDatesPreference=false;
 function currentFormat(){return Object.fromEntries(Object.entries(templateFields).map(([key,id])=>[key,key==='alignWithDates'?alignWithDatesPreference:$(id).type==='checkbox'?$(id).checked:$(id).value]));}
-const baseFormat={transposeOutput:false,row:'{label} ({unit}) {values}\\n',separator:' ',emptyCell:'-',date:'MM/DD',aligned:true,alignWithDates:false,includeDate:true,skipEmpty:true};
+const baseFormat={transposeOutput:false,row:'{label} ({unit}) {values}\\n',separator:' ',eachValue:'{value}',emptyCell:'-',date:'MM/DD',aligned:true,alignWithDates:false,includeDate:true,skipEmpty:true};
 const defaultTemplates=()=>[
  {name:'Aligned with dates',options:{...baseFormat}},
- {name:'With units · >',options:{...baseFormat,separator:'> ',aligned:false,includeDate:false}},
- {name:'Names only · >',options:{...baseFormat,row:'{label}: {values}\\n',separator:' > ',aligned:false,includeDate:false}},
+ {name:'With units',options:{...baseFormat,separator:' > ',aligned:false,includeDate:false}},
+ {name:'Compact',options:{...baseFormat,row:'{label}: {values}\\n',separator:'> ',emptyCell:'',aligned:false,includeDate:false}},
  {name:'One row',options:{...baseFormat,row:'{label}:{values}, ',separator:'>',aligned:false,includeDate:false}},
  null,null,null,null
 ];
@@ -522,7 +533,8 @@ async function loadTemplates(){
   });
   saved.forEach((template,i)=>{
    if(template&&typeof template.name==='string'&&template.options){
-    const options={transposeOutput:false,alignWithDates:false,emptyCell:'-',...template.options};
+    const options={transposeOutput:false,alignWithDates:false,emptyCell:'-',eachValue:'{value}',...template.options};
+    if(typeof options.row==='string')options.row=options.row.replace(/\{name\}/g,'{label}');
     delete options.value;
     delete options.separatorDates;
     if(Object.entries(baseFormat).every(([key,value])=>typeof options[key]===typeof value))templates[i]={...template,options};
