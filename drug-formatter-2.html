@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Drug Formatter</title>
+<script src="analytics.js"></script>
 <style>
 * { box-sizing: border-box; }
 body { margin: 0; padding: 24px; background: #f8f9fa; color: #333; font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -218,6 +219,7 @@ $('saveTemplateForm').addEventListener('submit', async event => {
         templates[slot] = template; selectedSlot = slot;
         renderTemplates(); $('saveDialog').close();
         $('templateStatus').textContent = `Saved “${name}” to slot ${slot + 1} in this browser’s website database.`;
+        window.trackTemplateSave?.('drug_formatter_2');
     } catch { $('saveError').textContent = 'Could not save the template. Please try again.'; }
     finally { $('confirmSave').disabled = false; $('cancelSave').disabled = false; $('saveSlot').disabled = false; }
 });

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lab Data Formatter</title>
+<script src="analytics.js"></script>
 <style>
 #output thead th.date-warning{background:#ffb3b3;color:#8b0000}
 .date-order-warning{display:flex;align-items:flex-start;gap:12px;margin:20px 0;padding:16px 18px;border:1px solid #f5b5b5;border-left:4px solid #c53030;border-radius:8px;background:#fff1f1;color:#8b2020}
@@ -500,6 +501,7 @@ $('saveTemplateForm').addEventListener('submit',async event=>{
   });
   templates[slot]=template;selectedSlot=slot;renderTemplates();$('saveDialog').close();
   $('templateStatus').textContent=`Saved “${name}” to slot ${slot+1} in this browser’s website database.`;
+  window.trackTemplateSave?.('lab_data_formatter');
  }catch(error){$('saveError').textContent='Could not save the template. Please try again.';}
  finally{$('confirmSave').disabled=false;$('cancelSave').disabled=false;$('saveSlot').disabled=false;}
 });
